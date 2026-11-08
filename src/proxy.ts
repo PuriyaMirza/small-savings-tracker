@@ -3,6 +3,9 @@
 export { auth as proxy } from '@/auth';
 
 export const config = {
-  // Everything except Auth.js's own routes, the sign-in page and static files.
-  matcher: ['/((?!api/auth|signin|_next/static|_next/image|favicon.ico|manifest|icon|apple-icon).*)'],
+  // Everything except Auth.js's own routes, the sign-in page, static files,
+  // and the public PWA files (manifest, icons, service worker, offline page).
+  matcher: [
+    '/((?!api/auth|signin|_next/static|_next/image|favicon.ico|manifest.webmanifest|icon|apple-icon|sw.js|offline.html).*)',
+  ],
 };

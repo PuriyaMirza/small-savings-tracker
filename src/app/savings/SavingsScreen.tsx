@@ -16,6 +16,8 @@ import {
 import { formatCents } from '@/lib/money';
 import { addDays, dayKey, dayLabel, isInPeriod, noonOn, PERIODS, timeLabel, type Period } from '@/lib/periods';
 import { useToast } from '@/components/useToast';
+import OfflineBanner from '@/components/OfflineBanner';
+import { useOnline } from '@/components/useOnline';
 import { addEntry, deleteEntry, restoreEntry, type ActionResult } from '../actions';
 
 const DOT_BG: Record<CategoryId, string> = {
@@ -39,6 +41,7 @@ export default function SavingsScreen({ initialEntries }: { initialEntries: Entr
   const [period, setPeriod] = useState<Period>('week');
   const pending = useRef(new Map<string, Promise<ActionResult<Entry>>>());
   const toast = useToast();
+  const online = useOnline();
 
   const drop = (id: string) => setEntries((prev) => prev.filter((e) => e.id !== id));
   const putBack = (entry: Entry) =>
@@ -133,6 +136,11 @@ export default function SavingsScreen({ initialEntries }: { initialEntries: Entr
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-5 pb-28 pt-[max(0.75rem,env(safe-area-inset-top))] text-paper">
+      {!online && (
+        <div className="-mx-5 mb-3">
+          <OfflineBanner />
+        </div>
+      )}
       <Link
         href="/"
         className={`flex min-h-11 w-fit items-center rounded-full bg-paper px-4 text-sm font-extrabold text-ink ${focusRing}`}
@@ -180,7 +188,13 @@ export default function SavingsScreen({ initialEntries }: { initialEntries: Entr
       </ul>
 
       <h2 className="mt-10 text-lg font-extrabold">History</h2>
-      {groups.length === 0 && <p className="mt-2 text-muted">Nothing logged in this period.</p>}
+      {entries.length === 0 ? (
+        <p className="mt-2 text-muted">
+          No savings yet. Tap a band on the Log screen to record your first one.
+        </p>
+      ) : (
+        groups.length === 0 && <p className="mt-2 text-muted">Nothing logged in this period.</p>
+      )}
       {groups.map((g) => (
         <section key={g.key} className="mt-4">
           <h3 className="text-sm font-medium text-muted">{dayLabel(g.key, now)}</h3>
@@ -196,8 +210,9 @@ export default function SavingsScreen({ initialEntries }: { initialEntries: Entr
                   <button
                     type="button"
                     onClick={() => remove(e)}
+                    disabled={!online}
                     aria-label={`Delete ${label} ${formatCents(e.amountCents)}, ${dayLabel(g.key, now)} ${timeLabel(new Date(e.occurredAt))}`}
-                    className={`flex size-11 items-center justify-center rounded-full text-muted ${focusRing}`}
+                    className={`flex size-11 items-center justify-center rounded-full text-muted disabled:opacity-40 ${focusRing}`}
                   >
                     <span aria-hidden>✕</span>
                   </button>
@@ -271,7 +286,8 @@ export default function SavingsScreen({ initialEntries }: { initialEntries: Entr
         )}
         <button
           type="submit"
-          className={`mt-4 min-h-11 w-full rounded-full bg-paper text-sm font-extrabold text-ink ${focusRing}`}
+          disabled={!online}
+          className={`mt-4 min-h-11 w-full rounded-full bg-paper text-sm font-extrabold text-ink disabled:opacity-50 ${focusRing}`}
         >
           Add
         </button>
