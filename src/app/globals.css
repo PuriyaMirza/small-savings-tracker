@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens — direction "B · Bands" (docs/HANDOFF.md).
+ * Tailwind v4 turns each into a CSS variable (e.g. var(--color-lunch))
+ * and a utility class (e.g. bg-lunch, text-muted).
+ */
+@theme {
+  --color-breakfast: #ffd84d;
+  --color-lunch: #ff8a5c;
+  --color-bike: #7fd1ae;
+  --color-ink: #111111;
+  --color-bar: #111111;   /* top bar + Savings background */
+  --color-muted: #a3a3a3; /* muted text on dark */
+  --color-track: #262626; /* bar-chart track on dark */
+  --color-paper: #ffffff;
+}
+
+@theme inline {
+  --font-sans: var(--font-archivo), system-ui, sans-serif;
+}
+
+body {
+  background: var(--color-bar);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
