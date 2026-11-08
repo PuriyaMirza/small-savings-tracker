@@ -1,7 +1,47 @@
 import { describe, expect, it } from 'vitest';
-import { groupByDay, newEntry, sampleEntries, sumCents, totalsByCategory } from './entries';
+import {
+  entryLabel,
+  groupByDay,
+  newEntry,
+  newOtherEntry,
+  sampleEntries,
+  sumCents,
+  totalsByCategory,
+  validateOther,
+} from './entries';
+
+describe('other entries', () => {
+  it('validates name and amount', () => {
+    expect(validateOther({ label: '  Coffee   to go ', amount: '4.50' })).toEqual({ label: 'Coffee to go', cents: 450 });
+    expect(validateOther({ label: '', amount: '4' })).toHaveProperty('error');
+    expect(validateOther({ label: 'x'.repeat(41), amount: '4' })).toHaveProperty('error');
+    expect(validateOther({ label: 'Coffee', amount: 'abc' })).toHaveProperty('error');
+    expect(validateOther({ label: 'Rent', amount: '1000.01' })).toHaveProperty('error');
+    expect(validateOther({ label: 'Rent', amount: '1000' })).toEqual({ label: 'Rent', cents: 100000 });
+  });
+
+  it('shows the typed name and counts under one "Other" total', () => {
+    const t = new Date('2026-11-08T17:00:00Z');
+    const coffee = newOtherEntry('Coffee', 450, t);
+    expect(entryLabel(coffee)).toBe('Coffee');
+    const list = [coffee, newOtherEntry('Snack', 300, t), newEntry('bike', t)];
+    expect(totalsByCategory(list).find((c) => c.id === 'other')).toMatchObject({ cents: 750, count: 2 });
+  });
+
+  it('hides the "Other" total when there are none', () => {
+    const t = new Date('2026-11-08T17:00:00Z');
+    expect(totalsByCategory([newEntry('bike', t)]).map((c) => c.id)).toEqual(['breakfast', 'lunch', 'bike']);
+  });
+});
 
 describe('entries', () => {
+  it('allows the same button many times in one day', () => {
+    const t = new Date('2026-11-08T17:00:00Z');
+    const list = [newEntry('bike', t), newEntry('bike', t), newEntry('bike', t)];
+    expect(new Set(list.map((e) => e.id)).size).toBe(3);
+    expect(totalsByCategory(list).find((c) => c.id === 'bike')).toMatchObject({ cents: 900, count: 3 });
+  });
+
   it('takes the price from config, not the caller', () => {
     expect(newEntry('lunch', new Date()).amountCents).toBe(1000);
   });

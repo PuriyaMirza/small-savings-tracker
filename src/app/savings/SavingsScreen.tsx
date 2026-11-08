@@ -2,13 +2,16 @@
 
 import Link from 'next/link';
 import { useMemo, useState, type FormEvent } from 'react';
-import { CATEGORIES, type CategoryId } from '@/config/categories';
+import { CATEGORIES, OTHER, type CategoryId } from '@/config/categories';
 import {
+  entryLabel,
   groupByDay,
   newEntry,
+  newOtherEntry,
   sampleEntries,
   sumCents,
   totalsByCategory,
+  validateOther,
   type Entry,
 } from '@/lib/entries';
 import { formatCents } from '@/lib/money';
@@ -19,6 +22,7 @@ const DOT_BG: Record<CategoryId, string> = {
   breakfast: 'bg-breakfast',
   lunch: 'bg-lunch',
   bike: 'bg-bike',
+  other: 'bg-other',
 };
 
 const focusRing =
@@ -45,8 +49,7 @@ export default function SavingsScreen() {
 
   function remove(entry: Entry) {
     setEntries((prev) => prev.filter((e) => e.id !== entry.id));
-    const label = CATEGORIES.find((c) => c.id === entry.category)?.label ?? entry.category;
-    toast.show(`Deleted ${label} · ${formatCents(entry.amountCents)}`, () =>
+    toast.show(`Deleted ${entryLabel(entry)} · ${formatCents(entry.amountCents)}`, () =>
       setEntries((prev) => [...prev, entry]),
     );
   }
@@ -55,6 +58,8 @@ export default function SavingsScreen() {
   const minDay = addDays(today, -365 * 2);
   const [formCategory, setFormCategory] = useState<CategoryId>('breakfast');
   const [formDay, setFormDay] = useState(today);
+  const [formOtherLabel, setFormOtherLabel] = useState('');
+  const [formOtherAmount, setFormOtherAmount] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
 
   function addMissed(e: FormEvent) {
@@ -63,11 +68,21 @@ export default function SavingsScreen() {
       setFormError('Pick a date between 2 years ago and today.');
       return;
     }
+    let entry: Entry;
+    if (formCategory === OTHER.id) {
+      const result = validateOther({ label: formOtherLabel, amount: formOtherAmount });
+      if ('error' in result) {
+        setFormError(result.error);
+        return;
+      }
+      entry = newOtherEntry(result.label, result.cents, noonOn(formDay));
+      setFormOtherAmount('');
+    } else {
+      entry = newEntry(formCategory, noonOn(formDay));
+    }
     setFormError(null);
-    const entry = newEntry(formCategory, noonOn(formDay));
     setEntries((prev) => [...prev, entry]);
-    const label = CATEGORIES.find((c) => c.id === formCategory)?.label ?? formCategory;
-    toast.show(`Added ${label} · ${dayLabel(formDay, now)}`, () =>
+    toast.show(`Added ${entryLabel(entry)} · ${dayLabel(formDay, now)}`, () =>
       setEntries((prev) => prev.filter((x) => x.id !== entry.id)),
     );
   }
@@ -127,11 +142,11 @@ export default function SavingsScreen() {
           <h3 className="text-sm font-medium text-muted">{dayLabel(g.key, now)}</h3>
           <ul className="mt-1 divide-y divide-track">
             {g.entries.map((e) => {
-              const label = CATEGORIES.find((c) => c.id === e.category)?.label ?? e.category;
+              const label = entryLabel(e);
               return (
                 <li key={e.id} className="flex min-h-12 items-center gap-3">
                   <span aria-hidden className={`size-3 shrink-0 rounded-full ${DOT_BG[e.category]}`} />
-                  <span className="flex-1 font-medium">{label}</span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{label}</span>
                   <span className="text-sm text-muted tabular-nums">{timeLabel(new Date(e.occurredAt))}</span>
                   <span className="w-14 text-right font-extrabold tabular-nums">{formatCents(e.amountCents)}</span>
                   <button
@@ -164,6 +179,7 @@ export default function SavingsScreen() {
                   {c.label} · {formatCents(c.amountCents)}
                 </option>
               ))}
+              <option value={OTHER.id}>Other · you choose</option>
             </select>
           </label>
           <label className="flex min-w-36 flex-1 flex-col text-sm text-muted">
@@ -178,6 +194,32 @@ export default function SavingsScreen() {
             />
           </label>
         </div>
+        {formCategory === OTHER.id && (
+          <div className="mt-3 flex flex-wrap gap-3">
+            <label className="flex min-w-36 flex-1 flex-col text-sm text-muted">
+              What did you skip?
+              <input
+                value={formOtherLabel}
+                maxLength={OTHER.maxLabelLength}
+                onChange={(e) => setFormOtherLabel(e.target.value)}
+                placeholder="Coffee"
+                autoComplete="off"
+                className={`mt-1 min-h-11 rounded-xl bg-bar px-3 text-base text-paper ${focusRing}`}
+              />
+            </label>
+            <label className="flex min-w-36 flex-1 flex-col text-sm text-muted">
+              Amount saved ($)
+              <input
+                value={formOtherAmount}
+                onChange={(e) => setFormOtherAmount(e.target.value)}
+                inputMode="decimal"
+                placeholder="4.50"
+                autoComplete="off"
+                className={`mt-1 min-h-11 rounded-xl bg-bar px-3 text-base text-paper tabular-nums ${focusRing}`}
+              />
+            </label>
+          </div>
+        )}
         {formError && (
           <p role="alert" className="mt-2 text-sm text-lunch">
             {formError}

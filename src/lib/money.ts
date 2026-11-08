@@ -14,3 +14,17 @@ export function formatCents(cents: number, opts: { alwaysDecimals?: boolean } = 
   if (rest === 0 && !opts.alwaysDecimals) return `${sign}$${whole}`;
   return `${sign}$${whole}.${String(rest).padStart(2, '0')}`;
 }
+
+/**
+ * Parse a typed dollar amount ("4", "4.5", "$4.50") into integer cents.
+ * Returns null for anything that isn't a positive amount with at most 2 decimals.
+ */
+export function parseDollars(input: string): number | null {
+  const s = input.trim().replace(/^\$/, '').replace(/,/g, '');
+  const m = /^(\d+)(?:\.(\d{1,2}))?$|^\.(\d{1,2})$/.exec(s);
+  if (!m) return null;
+  const dollars = Number(m[1] ?? 0);
+  const fraction = (m[2] ?? m[3] ?? '').padEnd(2, '0');
+  const cents = dollars * 100 + Number(fraction || 0);
+  return Number.isSafeInteger(cents) && cents > 0 ? cents : null;
+}
