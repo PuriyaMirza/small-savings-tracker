@@ -9,6 +9,7 @@
   --color-breakfast: #ffd84d;
   --color-lunch: #ff8a5c;
   --color-bike: #7fd1ae;
+  --color-other: #c4b5fd; /* added for "Other"; not in the original mockups */
   --color-ink: #111111;
   --color-bar: #111111;   /* top bar + Savings background */
   --color-muted: #a3a3a3; /* muted text on dark */

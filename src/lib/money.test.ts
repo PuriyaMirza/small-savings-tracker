@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { formatCents } from './money';
+import { formatCents, parseDollars } from './money';
+
+describe('parseDollars', () => {
+  it('accepts whole, decimal and $-prefixed amounts', () => {
+    expect(parseDollars('4')).toBe(400);
+    expect(parseDollars('4.5')).toBe(450);
+    expect(parseDollars(' $4.50 ')).toBe(450);
+    expect(parseDollars('.75')).toBe(75);
+    expect(parseDollars('1,200')).toBe(120000);
+  });
+  it('rejects zero, negatives, 3+ decimals and junk', () => {
+    for (const bad of ['', '0', '0.00', '-3', '4.555', 'abc', '4.', '1e3']) {
+      expect(parseDollars(bad)).toBeNull();
+    }
+  });
+});
 import { CATEGORIES } from '../config/categories';
 
 describe('formatCents', () => {
