@@ -7,6 +7,8 @@ import { newEntry, newOtherEntry, sumCents, type Entry } from '@/lib/entries';
 import { formatCents } from '@/lib/money';
 import { useToast } from '@/components/useToast';
 import OtherSheet from '@/components/OtherSheet';
+import OfflineBanner from '@/components/OfflineBanner';
+import { useOnline } from '@/components/useOnline';
 import { addEntry, deleteEntry, type ActionResult } from './actions';
 
 const BAND_BG: Record<CategoryId, string> = {
@@ -31,6 +33,8 @@ type Props = {
  */
 export default function LogScreen({ initialEntries }: Props) {
   const loading = initialEntries === null;
+  const online = useOnline();
+  const disabled = loading || !online;
   const [entries, setEntries] = useState<Entry[]>(initialEntries ?? []);
   const [otherOpen, setOtherOpen] = useState(false);
   const [lastOtherLabel, setLastOtherLabel] = useState('');
@@ -100,6 +104,7 @@ export default function LogScreen({ initialEntries }: Props) {
           Savings →
         </Link>
       </header>
+      {!online && <OfflineBanner />}
 
       <div className="flex flex-1 flex-col pb-[env(safe-area-inset-bottom)]">
         {CATEGORIES.map((c) => {
@@ -108,7 +113,7 @@ export default function LogScreen({ initialEntries }: Props) {
             <button
               key={c.id}
               type="button"
-              disabled={loading}
+              disabled={disabled}
               onClick={() => log(c)}
               aria-label={`Log ${c.label}, ${formatCents(c.amountCents)}. ${count} today.`}
               className={`${BAND_BG[c.id]} ${bandClass}`}
@@ -125,7 +130,7 @@ export default function LogScreen({ initialEntries }: Props) {
         })}
         <button
           type="button"
-          disabled={loading}
+          disabled={disabled}
           onClick={() => {
             toast.dismiss(); // the toast would cover the sheet's buttons
             setOtherOpen(true);

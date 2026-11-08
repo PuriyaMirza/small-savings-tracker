@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo } from "next/font/google";
+import RegisterServiceWorker from "@/components/RegisterServiceWorker";
 import "./globals.css";
 
 const archivo = Archivo({
@@ -11,6 +12,14 @@ const archivo = Archivo({
 export const metadata: Metadata = {
   title: "Savings",
   description: "Log money saved by skipping a purchase.",
+  applicationName: "Savings",
+  // iPhone home-screen app: full screen, dark status bar over our black top bar.
+  appleWebApp: {
+    capable: true,
+    title: "Savings",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
@@ -23,7 +32,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${archivo.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+      <body className="min-h-full flex flex-col font-sans">
+        {children}
+        <RegisterServiceWorker />
+      </body>
     </html>
   );
 }

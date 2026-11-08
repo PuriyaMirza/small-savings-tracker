@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#111111" />
+    <title>Offline · Savings</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #111111; color: #ffffff;
+        font-family: -apple-system, system-ui, sans-serif; }
+      .bands div { height: 12px; }
+      main { padding: max(2rem, env(safe-area-inset-top)) 20px max(2rem, env(safe-area-inset-bottom));
+        display: flex; flex-direction: column; justify-content: center; min-height: 70vh; }
+      h1 { font-size: 40px; font-weight: 800; margin: 0; line-height: 1.05; }
+      p { color: #a3a3a3; font-size: 17px; line-height: 1.4; }
+      button { margin-top: 24px; min-height: 48px; border: 0; border-radius: 999px;
+        background: #ffffff; color: #111111; font-size: 16px; font-weight: 800; }
+    </style>
+  </head>
+  <body>
+    <div class="bands" aria-hidden="true">
+      <div style="background:#FFD84D"></div><div style="background:#FF8A5C"></div><div style="background:#7FD1AE"></div>
+    </div>
+    <main>
+      <h1>You're offline</h1>
+      <p>Savings needs an internet connection to load and save entries. Nothing you logged earlier is lost.</p>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>
