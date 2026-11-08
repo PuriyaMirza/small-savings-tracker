@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { CATEGORIES, OTHER, type Category, type CategoryId } from '@/config/categories';
 import { newEntry, newOtherEntry, sumCents, type Entry } from '@/lib/entries';
 import { formatCents } from '@/lib/money';
 import { useToast } from '@/components/useToast';
 import OtherSheet from '@/components/OtherSheet';
+import { addEntry, deleteEntry, type ActionResult } from './actions';
 
 const BAND_BG: Record<CategoryId, string> = {
   breakfast: 'bg-breakfast',
@@ -16,32 +17,69 @@ const BAND_BG: Record<CategoryId, string> = {
 };
 
 const bandClass =
-  'flex flex-1 flex-col justify-center px-5 text-left text-ink transition-[filter] active:brightness-90 focus-visible:outline-4 focus-visible:-outline-offset-8 focus-visible:outline-ink';
+  'flex flex-1 flex-col justify-center px-5 text-left text-ink transition-[filter] active:brightness-90 disabled:opacity-60 focus-visible:outline-4 focus-visible:-outline-offset-8 focus-visible:outline-ink';
+
+type Props = {
+  /** Today's saved entries from the database; null while loading. */
+  initialEntries: Entry[] | null;
+};
 
 /**
- * M1: entries live in local React state only (lost on reload).
- * M3 swaps this for Server Actions + the database.
+ * Optimistic UI: a tap shows immediately, then saves on the server.
+ * If the save fails, the entry is removed again and an error toast shows.
  * Every tap is its own entry, so a button can be logged any number of times a day.
  */
-export default function LogScreen() {
-  const [entries, setEntries] = useState<Entry[]>([]);
+export default function LogScreen({ initialEntries }: Props) {
+  const loading = initialEntries === null;
+  const [entries, setEntries] = useState<Entry[]>(initialEntries ?? []);
   const [otherOpen, setOtherOpen] = useState(false);
   const [lastOtherLabel, setLastOtherLabel] = useState('');
+  const pending = useRef(new Map<string, Promise<ActionResult<Entry>>>());
   const toast = useToast();
 
-  function add(entry: Entry, message: string) {
+  const remove = (id: string) => setEntries((prev) => prev.filter((e) => e.id !== id));
+
+  async function undo(entry: Entry) {
+    remove(entry.id);
+    const saving = pending.current.get(entry.id);
+    if (saving && !(await saving).ok) return; // never saved; nothing to delete
+    const res = await deleteEntry(entry.id);
+    if (!res.ok) {
+      setEntries((prev) => [...prev, entry]);
+      toast.show(res.error);
+    }
+  }
+
+  function save(entry: Entry, input: Record<string, string>, message: string) {
     setEntries((prev) => [...prev, entry]);
-    toast.show(message, () => setEntries((prev) => prev.filter((e) => e.id !== entry.id)));
+    toast.show(message, () => void undo(entry));
+    const saving = addEntry({ id: entry.id, ...input });
+    pending.current.set(entry.id, saving);
+    void saving.then((res) => {
+      pending.current.delete(entry.id);
+      if (res.ok) {
+        setEntries((prev) => prev.map((e) => (e.id === entry.id ? res.data : e)));
+      } else {
+        remove(entry.id);
+        toast.show(res.error);
+      }
+    });
   }
 
   function log(category: Category) {
-    add(newEntry(category.id, new Date()), `Logged ${category.label} · ${formatCents(category.amountCents)}`);
+    const entry = newEntry(category.id, new Date());
+    save(entry, { category: category.id }, `Logged ${category.label} · ${formatCents(category.amountCents)}`);
   }
 
   function logOther(label: string, cents: number) {
     setOtherOpen(false);
     setLastOtherLabel(label);
-    add(newOtherEntry(label, cents, new Date()), `Logged ${label} · ${formatCents(cents)}`);
+    const entry = newOtherEntry(label, cents, new Date());
+    save(
+      entry,
+      { category: OTHER.id, label, amount: (cents / 100).toFixed(2) },
+      `Logged ${label} · ${formatCents(cents)}`,
+    );
   }
 
   const closeOther = useCallback(() => setOtherOpen(false), []);
@@ -53,7 +91,7 @@ export default function LogScreen() {
       <header className="flex items-center justify-between bg-bar px-5 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-paper">
         <div>
           <p className="text-xs font-medium text-muted">Today</p>
-          <p className="text-2xl font-extrabold tabular-nums">{formatCents(sumCents(entries))}</p>
+          <p className="text-2xl font-extrabold tabular-nums">{loading ? '…' : formatCents(sumCents(entries))}</p>
         </div>
         <Link
           href="/savings"
@@ -70,12 +108,13 @@ export default function LogScreen() {
             <button
               key={c.id}
               type="button"
+              disabled={loading}
               onClick={() => log(c)}
               aria-label={`Log ${c.label}, ${formatCents(c.amountCents)}. ${count} today.`}
               className={`${BAND_BG[c.id]} ${bandClass}`}
             >
               <span className="text-sm font-medium">
-                {c.note} · {count} today
+                {c.note} · {loading ? '…' : count} today
               </span>
               <span className="flex items-baseline justify-between text-[50px] font-extrabold leading-none">
                 <span>{c.label}</span>
@@ -86,6 +125,7 @@ export default function LogScreen() {
         })}
         <button
           type="button"
+          disabled={loading}
           onClick={() => {
             toast.dismiss(); // the toast would cover the sheet's buttons
             setOtherOpen(true);
@@ -95,7 +135,7 @@ export default function LogScreen() {
           className={`${BAND_BG.other} ${bandClass}`}
         >
           <span className="text-sm font-medium">
-            {OTHER.note} · {otherCount} today
+            {OTHER.note} · {loading ? '…' : otherCount} today
           </span>
           <span className="flex items-baseline justify-between text-[50px] font-extrabold leading-none">
             <span>{OTHER.label}</span>

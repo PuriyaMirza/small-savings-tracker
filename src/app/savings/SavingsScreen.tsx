@@ -1,14 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { CATEGORIES, OTHER, type CategoryId } from '@/config/categories';
 import {
   entryLabel,
   groupByDay,
   newEntry,
   newOtherEntry,
-  sampleEntries,
   sumCents,
   totalsByCategory,
   validateOther,
@@ -17,6 +16,7 @@ import {
 import { formatCents } from '@/lib/money';
 import { addDays, dayKey, dayLabel, isInPeriod, noonOn, PERIODS, timeLabel, type Period } from '@/lib/periods';
 import { useToast } from '@/components/useToast';
+import { addEntry, deleteEntry, restoreEntry, type ActionResult } from '../actions';
 
 const DOT_BG: Record<CategoryId, string> = {
   breakfast: 'bg-breakfast',
@@ -29,14 +29,20 @@ const focusRing =
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper';
 
 /**
- * M1: hard-coded sample entries in local state. Rendered client-only
- * (see SavingsLoader) because the sample data depends on the current time.
+ * All saved entries from the database. Changes show immediately and are
+ * saved on the server; a failed save is rolled back with an error toast.
+ * Rendered client-only (see SavingsLoader) because periods depend on "now".
  */
-export default function SavingsScreen() {
+export default function SavingsScreen({ initialEntries }: { initialEntries: Entry[] }) {
   const [now] = useState(() => new Date());
-  const [entries, setEntries] = useState<Entry[]>(() => sampleEntries(now));
+  const [entries, setEntries] = useState<Entry[]>(initialEntries);
   const [period, setPeriod] = useState<Period>('week');
+  const pending = useRef(new Map<string, Promise<ActionResult<Entry>>>());
   const toast = useToast();
+
+  const drop = (id: string) => setEntries((prev) => prev.filter((e) => e.id !== id));
+  const putBack = (entry: Entry) =>
+    setEntries((prev) => (prev.some((e) => e.id === entry.id) ? prev : [...prev, entry]));
 
   const inPeriod = useMemo(
     () => entries.filter((e) => isInPeriod(new Date(e.occurredAt), period, now)),
@@ -48,10 +54,25 @@ export default function SavingsScreen() {
   const groups = groupByDay(inPeriod);
 
   function remove(entry: Entry) {
-    setEntries((prev) => prev.filter((e) => e.id !== entry.id));
-    toast.show(`Deleted ${entryLabel(entry)} · ${formatCents(entry.amountCents)}`, () =>
-      setEntries((prev) => [...prev, entry]),
-    );
+    drop(entry.id);
+    const deleting = deleteEntry(entry.id);
+    toast.show(`Deleted ${entryLabel(entry)} · ${formatCents(entry.amountCents)}`, () => {
+      putBack(entry);
+      void deleting.then(async (del) => {
+        if (!del.ok) return; // delete never happened; already back
+        const res = await restoreEntry(entry.id);
+        if (!res.ok) {
+          drop(entry.id);
+          toast.show(res.error);
+        }
+      });
+    });
+    void deleting.then((res) => {
+      if (!res.ok) {
+        putBack(entry);
+        toast.show(res.error);
+      }
+    });
   }
 
   const today = dayKey(now);
@@ -69,6 +90,7 @@ export default function SavingsScreen() {
       return;
     }
     let entry: Entry;
+    let input: Record<string, string>;
     if (formCategory === OTHER.id) {
       const result = validateOther({ label: formOtherLabel, amount: formOtherAmount });
       if ('error' in result) {
@@ -76,15 +98,37 @@ export default function SavingsScreen() {
         return;
       }
       entry = newOtherEntry(result.label, result.cents, noonOn(formDay));
+      input = { category: OTHER.id, day: formDay, label: result.label, amount: (result.cents / 100).toFixed(2) };
       setFormOtherAmount('');
     } else {
       entry = newEntry(formCategory, noonOn(formDay));
+      input = { category: formCategory, day: formDay };
     }
     setFormError(null);
-    setEntries((prev) => [...prev, entry]);
-    toast.show(`Added ${entryLabel(entry)} · ${dayLabel(formDay, now)}`, () =>
-      setEntries((prev) => prev.filter((x) => x.id !== entry.id)),
-    );
+    putBack(entry);
+    toast.show(`Added ${entryLabel(entry)} · ${dayLabel(formDay, now)}`, () => void undoAdd(entry));
+    const saving = addEntry({ id: entry.id, ...input });
+    pending.current.set(entry.id, saving);
+    void saving.then((res) => {
+      pending.current.delete(entry.id);
+      if (res.ok) {
+        setEntries((prev) => prev.map((e) => (e.id === entry.id ? res.data : e)));
+      } else {
+        drop(entry.id);
+        toast.show(res.error);
+      }
+    });
+  }
+
+  async function undoAdd(entry: Entry) {
+    drop(entry.id);
+    const saving = pending.current.get(entry.id);
+    if (saving && !(await saving).ok) return;
+    const res = await deleteEntry(entry.id);
+    if (!res.ok) {
+      putBack(entry);
+      toast.show(res.error);
+    }
   }
 
   return (

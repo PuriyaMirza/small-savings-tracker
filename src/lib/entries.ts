@@ -1,6 +1,6 @@
 import { CATEGORIES, OTHER, categoryLabel, type CategoryId, type FixedCategoryId } from '@/config/categories';
 import { parseDollars } from './money';
-import { addDays, dayKey, noonOn } from './periods';
+import { dayKey } from './periods';
 
 export type Entry = {
   id: string;
@@ -77,30 +77,4 @@ export function groupByDay(entries: Entry[]): { key: string; entries: Entry[] }[
     else groups.push({ key, entries: [e] });
   }
   return groups;
-}
-
-/**
- * Hard-coded sample data for M1 (replaced by the database in M3/M4).
- * Spread over the last ~6 weeks so every period shows something.
- */
-export function sampleEntries(now: Date): Entry[] {
-  const pattern: [number, FixedCategoryId][] = [
-    [0, 'breakfast'], [1, 'lunch'], [1, 'bike'], [1, 'bike'], [2, 'breakfast'], [3, 'lunch'],
-    [4, 'bike'], [4, 'breakfast'], [6, 'lunch'], [8, 'bike'], [9, 'breakfast'],
-    [12, 'lunch'], [15, 'lunch'], [18, 'bike'], [22, 'breakfast'], [27, 'lunch'],
-    [33, 'bike'], [40, 'lunch'],
-  ];
-  const today = dayKey(now);
-  const clamp = (d: Date) => new Date(Math.min(d.getTime(), now.getTime() - 60_000));
-  const fixed = pattern.map(([daysAgo, category], i) => {
-    const noon = noonOn(addDays(today, -daysAgo));
-    // Vary the time a little around noon; never later than a minute ago.
-    const offsetMin = ((i * 37) % 300) - 150;
-    return { ...newEntry(category, clamp(new Date(noon.getTime() + offsetMin * 60_000))), id: `sample-${i}` };
-  });
-  const other = [
-    { ...newOtherEntry('Coffee', 450, clamp(noonOn(addDays(today, -2)))), id: 'sample-o1' },
-    { ...newOtherEntry('Movie ticket', 1800, clamp(noonOn(addDays(today, -11)))), id: 'sample-o2' },
-  ];
-  return [...fixed, ...other];
 }
