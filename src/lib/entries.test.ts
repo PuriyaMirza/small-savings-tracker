@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   entryLabel,
   groupByDay,
+  mergeServerEntries,
   newEntry,
   newOtherEntry,
   sumCents,
@@ -30,6 +31,26 @@ describe('other entries', () => {
   it('hides the "Other" total when there are none', () => {
     const t = new Date('2026-11-08T17:00:00Z');
     expect(totalsByCategory([newEntry('bike', t)]).map((c) => c.id)).toEqual(['breakfast', 'lunch', 'bike']);
+  });
+});
+
+describe('mergeServerEntries', () => {
+  const t = new Date('2026-11-08T17:00:00Z');
+  const lunch = newEntry('lunch', t);
+  const coffee = newOtherEntry('Coffee', 300, t);
+  const saving = newEntry('bike', t);
+
+  it('drops entries the server no longer has (deleted elsewhere)', () => {
+    expect(mergeServerEntries([coffee], [lunch, coffee], new Set())).toEqual([coffee]);
+  });
+
+  it('keeps a tap that is still saving', () => {
+    const merged = mergeServerEntries([coffee], [coffee, saving], new Set([saving.id]));
+    expect(merged.map((e) => e.id)).toEqual([coffee.id, saving.id]);
+  });
+
+  it('does not duplicate a tap the server already has', () => {
+    expect(mergeServerEntries([coffee, saving], [saving], new Set([saving.id]))).toHaveLength(2);
   });
 });
 

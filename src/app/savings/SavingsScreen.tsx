@@ -6,6 +6,7 @@ import { CATEGORIES, OTHER, type CategoryId } from '@/config/categories';
 import {
   entryLabel,
   groupByDay,
+  mergeServerEntries,
   newEntry,
   newOtherEntry,
   sumCents,
@@ -18,6 +19,7 @@ import { addDays, dayKey, dayLabel, isInPeriod, noonOn, PERIODS, timeLabel, type
 import { useToast } from '@/components/useToast';
 import OfflineBanner from '@/components/OfflineBanner';
 import { useOnline } from '@/components/useOnline';
+import { useRefreshOnReturn } from '@/components/useRefreshOnReturn';
 import { addEntry, deleteEntry, restoreEntry, type ActionResult } from '../actions';
 
 const DOT_BG: Record<CategoryId, string> = {
@@ -42,6 +44,24 @@ export default function SavingsScreen({ initialEntries }: { initialEntries: Entr
   const pending = useRef(new Map<string, Promise<ActionResult<Entry>>>());
   const toast = useToast();
   const online = useOnline();
+  const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
+  useRefreshOnReturn();
+
+  // Next keeps this screen mounted between visits, so new server data arrives
+  // as a new prop: adopt it (keeping entries still being saved).
+  const [syncedFrom, setSyncedFrom] = useState(initialEntries);
+  if (initialEntries !== syncedFrom) {
+    setSyncedFrom(initialEntries);
+    setEntries((prev) => mergeServerEntries(initialEntries, prev, pendingIds));
+  }
+
+  const markPending = (id: string, on: boolean) =>
+    setPendingIds((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
 
   const drop = (id: string) => setEntries((prev) => prev.filter((e) => e.id !== id));
   const putBack = (entry: Entry) =>
@@ -112,8 +132,10 @@ export default function SavingsScreen({ initialEntries }: { initialEntries: Entr
     toast.show(`Added ${entryLabel(entry)} · ${dayLabel(formDay, now)}`, () => void undoAdd(entry));
     const saving = addEntry({ id: entry.id, ...input });
     pending.current.set(entry.id, saving);
+    markPending(entry.id, true);
     void saving.then((res) => {
       pending.current.delete(entry.id);
+      markPending(entry.id, false);
       if (res.ok) {
         setEntries((prev) => prev.map((e) => (e.id === entry.id ? res.data : e)));
       } else {
