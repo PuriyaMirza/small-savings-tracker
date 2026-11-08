@@ -53,6 +53,16 @@ export function entryLabel(e: Entry): string {
   return e.category === OTHER.id && e.label ? e.label : categoryLabel(e.category);
 }
 
+/**
+ * Fresh server data replaces the local copy, except entries still being
+ * saved (not on the server yet), which are kept so they don't flicker away.
+ */
+export function mergeServerEntries(server: Entry[], local: Entry[], pendingIds: Set<string>): Entry[] {
+  const onServer = new Set(server.map((e) => e.id));
+  const stillSaving = local.filter((e) => pendingIds.has(e.id) && !onServer.has(e.id));
+  return [...server, ...stillSaving];
+}
+
 export function sumCents(entries: Entry[]): number {
   return entries.reduce((total, e) => total + e.amountCents, 0);
 }
