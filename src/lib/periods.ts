@@ -77,14 +77,29 @@ export function isInPeriod(occurredAt: Date, period: Period, now: Date): boolean
   return key <= dayKey(now) && (start === null || key >= start);
 }
 
+/** Local-minus-UTC offset in ms at an instant, e.g. -5h in winter. */
+function offsetAt(ms: number): number {
+  const p = zonedParts(new Date(ms));
+  return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - ms;
+}
+
+/** The instant a local wall-clock time happens on a day key. */
+function localTimeOn(key: string, hour: number): Date {
+  const [y, m, d] = key.split('-').map(Number);
+  const wall = Date.UTC(y, m - 1, d, hour);
+  // Two passes so the offset is the one in force at the result, not at the guess.
+  const first = wall - offsetAt(wall);
+  return new Date(wall - offsetAt(first));
+}
+
 /** The instant of 12:00 local time on a day key (used for backdated entries). */
 export function noonOn(key: string): Date {
-  const [y, m, d] = key.split('-').map(Number);
-  const guess = Date.UTC(y, m - 1, d, 12);
-  const p = zonedParts(new Date(guess));
-  const asIfUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
-  const offset = asIfUtc - guess; // local minus UTC, e.g. -5h in winter
-  return new Date(guess - offset);
+  return localTimeOn(key, 12);
+}
+
+/** The instant a local day begins (00:00). */
+export function startOfDay(key: string): Date {
+  return localTimeOn(key, 0);
 }
 
 /** "Today", "Yesterday", or e.g. "Mon, Nov 3". */

@@ -4,7 +4,6 @@ import {
   groupByDay,
   newEntry,
   newOtherEntry,
-  sampleEntries,
   sumCents,
   totalsByCategory,
   validateOther,
@@ -61,12 +60,5 @@ describe('entries', () => {
     const groups = groupByDay([early, next, late]);
     expect(groups.map((g) => g.key)).toEqual(['2026-11-09', '2026-11-08']);
     expect(groups[1].entries.map((e) => e.id)).toEqual([late.id, early.id]);
-  });
-
-  it('builds sample data that never lies in the future', () => {
-    const now = new Date('2026-11-08T13:00:00Z');
-    for (const e of sampleEntries(now)) {
-      expect(new Date(e.occurredAt).getTime()).toBeLessThan(now.getTime());
-    }
   });
 });

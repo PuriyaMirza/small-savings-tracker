@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, dayKey, dayLabel, isInPeriod, isoWeekday, noonOn, periodStartKey } from './periods';
+import { addDays, dayKey, dayLabel, isInPeriod, isoWeekday, noonOn, periodStartKey, startOfDay } from './periods';
 
 // Instants given in UTC; New York is UTC-5 in winter (EST), UTC-4 in summer (EDT).
 const at = (iso: string) => new Date(iso);
@@ -65,6 +65,17 @@ describe('noonOn', () => {
   it('returns 12:00 New York time in winter and summer', () => {
     expect(noonOn('2026-01-15').toISOString()).toBe('2026-01-15T17:00:00.000Z');
     expect(noonOn('2026-07-15').toISOString()).toBe('2026-07-15T16:00:00.000Z');
+  });
+});
+
+describe('startOfDay', () => {
+  it('is local midnight, including on both DST change days', () => {
+    expect(startOfDay('2026-11-08').toISOString()).toBe('2026-11-08T05:00:00.000Z'); // EST
+    expect(startOfDay('2026-07-15').toISOString()).toBe('2026-07-15T04:00:00.000Z'); // EDT
+    expect(startOfDay('2026-11-01').toISOString()).toBe('2026-11-01T04:00:00.000Z'); // fall back later that night
+    expect(startOfDay('2026-11-02').toISOString()).toBe('2026-11-02T05:00:00.000Z');
+    expect(startOfDay('2026-03-08').toISOString()).toBe('2026-03-08T05:00:00.000Z'); // spring forward later
+    expect(startOfDay('2026-03-09').toISOString()).toBe('2026-03-09T04:00:00.000Z');
   });
 });
 
