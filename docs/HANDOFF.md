@@ -67,7 +67,7 @@ A one-person, phone-first web app that logs money saved by skipping a purchase: 
 | PWA | `app/manifest.ts`, 192/512 icons, `apple-touch-icon`, standalone display | Home-screen install; no offline caching in v1 |
 | Tests | Vitest for period math and aggregation | The date logic is where bugs hide |
 
-**Auth — decide before Milestone 2** (single user, but the app is on the public internet):
+**Auth — decided 2026-11-08: option 1** (Auth.js v5 + Google, one allow-listed email in `ALLOWED_EMAIL`; env names in `.env.example`). Options considered (single user, but the app is on the public internet):
 
 | Option | Setup | Tradeoff |
 | --- | --- | --- |
